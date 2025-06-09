@@ -147,3 +147,21 @@ function Test-FSLogixTempRedirection {
     }
 }
 
+function Get-FSLogixStatus {
+    # Checks if FSLogix is installed and service is running
+    $service = Get-Service -Name frxsvc -ErrorAction SilentlyContinue
+    if ($null -eq $service) {
+        Write-Output "FSLogix is not installed."
+    } else {
+        Write-Output "FSLogix Service Status: $($service.Status)"
+    }
+}
+
+function Get-RDSUserSessions {
+    # Lists current user sessions on the RDS host
+    query user | ForEach-Object {
+        ($_ -split '\s{2,}')[0..2] -join ' | '
+    }
+}
+
+Export-ModuleMember -Function Get-FSLogixStatus, Get-RDSUserSessions
