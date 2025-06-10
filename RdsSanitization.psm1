@@ -215,4 +215,4 @@ function Disconnect-RDSUserSession {
     }
 }
 
-Export-ModuleMember -Function Get-RdsUserProfileState, Remove-StaleUserProfiles, Get-FSLogixStatus, Get-RDSUserSessions, Disconnect-RDSUserSession
+Export-ModuleMember -Function Get-RdsUserProfileState, Remove-StaleUserProfiles, Get-FSLogixStatus, Get-RDSUserSessions, Disconnect-RDSUserSession, Get-FSLogixDiagnostics, Get-FSLogixProfileEvents, Test-FSLogixTempRedirection
