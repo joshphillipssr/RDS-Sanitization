@@ -193,20 +193,43 @@ function Disconnect-RDSUserSession {
         [string[]]$Username
     )
 
-    $sessions = (quser) -replace '\s{2,}', ',' | ConvertFrom-Csv -Header 'USERNAME','SESSIONNAME','ID','STATE','IDLE','LOGON_TIME'
-    $disconnectedSessions = $sessions | Where-Object { $_.STATE -eq 'Disc' }
+    $sessions = quser 2>&1
+
+    if ($sessions -is [System.Management.Automation.ErrorRecord]) {
+        Write-Error "Failed to execute 'quser'. Ensure the command is available and you're running with appropriate permissions."
+        return
+    }
+
+    $parsedSessions = $sessions | Select-Object -Skip 1 | ForEach-Object {
+        $line = $_ -replace "^>\s*", "" -replace "\s{2,}", ","
+        $parts = $line.Split(",")
+
+        [PSCustomObject]@{
+            Username     = $parts[0].Trim()
+            SessionName  = if ($parts[1] -match '^\d+$') { "-" } else { $parts[1].Trim() }
+            SessionId    = if ($parts[1] -match '^\d+$') { [int]$parts[1] } else { [int]$parts[2] }
+            State        = switch -Wildcard ($line) {
+                "*Disc*" { "Disconnected"; break }
+                "*Active*" { "Active"; break }
+                "*Idle*" { "Idle"; break }
+                default { "Unknown" }
+            }
+        }
+    }
+
+    $disconnectedSessions = $parsedSessions | Where-Object { $_.State -eq 'Disconnected' }
 
     if ($Username) {
-        $disconnectedSessions = $disconnectedSessions | Where-Object { $Username -contains $_.USERNAME }
+        $disconnectedSessions = $disconnectedSessions | Where-Object { $Username -contains $_.Username }
     }
 
     foreach ($session in $disconnectedSessions) {
-        Write-Host "Logging off user '$($session.USERNAME)' (Session ID: $($session.ID))..." -ForegroundColor Yellow
+        Write-Host "Logging off user '$($session.Username)' (Session ID: $($session.SessionId))..." -ForegroundColor Yellow
         try {
-            logoff $session.ID
-            Write-Host "Successfully logged off Session ID $($session.ID)" -ForegroundColor Green
+            logoff $session.SessionId
+            Write-Host "Successfully logged off Session ID $($session.SessionId)" -ForegroundColor Green
         } catch {
-            Write-Host "Failed to log off Session ID $($session.ID): $_" -ForegroundColor Red
+            Write-Host "Failed to log off Session ID $($session.SessionId): $_" -ForegroundColor Red
         }
     }
 
