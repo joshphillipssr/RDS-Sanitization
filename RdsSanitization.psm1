@@ -158,18 +158,16 @@ function Get-FSLogixStatus {
 }
 
 function Get-RDSUserSessions {
-    $sessions = quser | ForEach-Object {
-        $parts = ($_ -replace '\s{2,}', '|').Split('|')
-        if ($parts.Count -ge 3) {
+    query user | ForEach-Object {
+        if ($_ -match '^\s*(\S+)\s+(\S+)?\s+(\d+)\s+(\w+)') {
             [PSCustomObject]@{
-                USERNAME     = $parts[0].Trim()
-                SESSIONNAME  = $parts[1].Trim()
-                ID           = $parts[2].Trim()
+                Username   = $matches[1]
+                Session    = if ($matches[2]) { $matches[2] } else { "-" }
+                SessionId  = $matches[3]
+                State      = $matches[4]
             }
         }
-    }
-
-    $sessions | Format-Table USERNAME, SESSIONNAME, ID -AutoSize
+    } | Format-Table Username, Session, SessionId, State -AutoSize
 }
 
 Export-ModuleMember -Function Get-FSLogixStatus, Get-RDSUserSessions
