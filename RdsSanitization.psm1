@@ -158,10 +158,18 @@ function Get-FSLogixStatus {
 }
 
 function Get-RDSUserSessions {
-    # Lists current user sessions on the RDS host
-    query user | ForEach-Object {
-        ($_ -split '\s{2,}')[0..2] -join ' | '
+    $sessions = quser | ForEach-Object {
+        $parts = ($_ -replace '\s{2,}', '|').Split('|')
+        if ($parts.Count -ge 3) {
+            [PSCustomObject]@{
+                USERNAME     = $parts[0].Trim()
+                SESSIONNAME  = $parts[1].Trim()
+                ID           = $parts[2].Trim()
+            }
+        }
     }
+
+    $sessions | Format-Table USERNAME, SESSIONNAME, ID -AutoSize
 }
 
 Export-ModuleMember -Function Get-FSLogixStatus, Get-RDSUserSessions
