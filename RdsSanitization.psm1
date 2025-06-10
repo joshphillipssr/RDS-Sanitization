@@ -1,8 +1,5 @@
 ## Root Module: RdsSanitization.psm1
 
-# Exported functions
-Export-ModuleMember -Function Get-RdsUserProfileState, Remove-StaleUserProfiles
-
 # Internal helper functions would be dot-sourced here or defined inline in a complete layout
 
 ## Function: Get-RdsUserProfileState
@@ -185,4 +182,37 @@ function Get-RDSUserSessions {
     $parsed | Format-Table -AutoSize
 }
 
-Export-ModuleMember -Function Get-FSLogixStatus, Get-RDSUserSessions
+
+function Disconnect-RDSUserSession {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory=$false)]
+        [switch]$All,
+
+        [Parameter(Mandatory=$false)]
+        [string[]]$Username
+    )
+
+    $sessions = (quser) -replace '\s{2,}', ',' | ConvertFrom-Csv -Header 'USERNAME','SESSIONNAME','ID','STATE','IDLE','LOGON_TIME'
+    $disconnectedSessions = $sessions | Where-Object { $_.STATE -eq 'Disc' }
+
+    if ($Username) {
+        $disconnectedSessions = $disconnectedSessions | Where-Object { $Username -contains $_.USERNAME }
+    }
+
+    foreach ($session in $disconnectedSessions) {
+        Write-Host "Logging off user '$($session.USERNAME)' (Session ID: $($session.ID))..." -ForegroundColor Yellow
+        try {
+            logoff $session.ID
+            Write-Host "Successfully logged off Session ID $($session.ID)" -ForegroundColor Green
+        } catch {
+            Write-Host "Failed to log off Session ID $($session.ID): $_" -ForegroundColor Red
+        }
+    }
+
+    if (-not $disconnectedSessions) {
+        Write-Host "No matching disconnected sessions found." -ForegroundColor Cyan
+    }
+}
+
+Export-ModuleMember -Function Get-RdsUserProfileState, Remove-StaleUserProfiles, Get-FSLogixStatus, Get-RDSUserSessions, Disconnect-RDSUserSession
