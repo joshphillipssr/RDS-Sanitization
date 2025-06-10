@@ -158,16 +158,31 @@ function Get-FSLogixStatus {
 }
 
 function Get-RDSUserSessions {
-    query user | ForEach-Object {
-        if ($_ -match '^\s*(\S+)\s+(\S+)?\s+(\d+)\s+(\w+)') {
-            [PSCustomObject]@{
-                Username   = $matches[1]
-                Session    = if ($matches[2]) { $matches[2] } else { "-" }
-                SessionId  = $matches[3]
-                State      = $matches[4]
+    $sessions = quser 2>&1
+
+    if ($sessions -is [System.Management.Automation.ErrorRecord]) {
+        Write-Error "Failed to execute 'quser'. Ensure the command is available and you're running with appropriate permissions."
+        return
+    }
+
+    $parsed = $sessions | Select-Object -Skip 1 | ForEach-Object {
+        $line = $_ -replace "^>\s*", "" -replace "\s{2,}", ","
+        $parts = $line.Split(",")
+
+        [PSCustomObject]@{
+            Username     = $parts[0].Trim()
+            SessionName  = if ($parts[1] -match '^(\d+)$') { "-" } else { $parts[1].Trim() }
+            SessionId    = if ($parts[1] -match '^(\d+)$') { [int]$parts[1] } else { [int]$parts[2] }
+            State        = switch -Wildcard ($line) {
+                "*Disc*" { "Disconnected"; break }
+                "*Active*" { "Active"; break }
+                "*Idle*" { "Idle"; break }
+                default { "Unknown" }
             }
         }
-    } | Format-Table Username, Session, SessionId, State -AutoSize
+    }
+
+    $parsed | Format-Table -AutoSize
 }
 
 Export-ModuleMember -Function Get-FSLogixStatus, Get-RDSUserSessions
